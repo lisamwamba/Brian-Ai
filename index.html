@@ -1,539 +1,670 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Health Status · BP & Vitals</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-    }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover" />
+<title>Brian AI</title>
+<meta name="description" content="A general-purpose AI problem-solving assistant" />
+<meta name="theme-color" content="#2563eb" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Brian AI" />
+<link rel="manifest" id="pwa-manifest" />
+<link rel="apple-touch-icon" id="apple-touch-icon" />
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f8fafc; --surface: #ffffff; --border: #e2e8f0;
+  --text: #0f172a; --text-muted: #475569;
+  --accent: #2563eb; --accent-soft: #dbeafe; --accent-hover: #1d4ed8;
+  --user-bubble: #2563eb; --user-text: #ffffff;
+  --ai-bubble: #f1f5f9; --ai-text: #0f172a;
+  --danger: #dc2626;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --radius: 18px; --radius-sm: 12px;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+html, body {
+  height: 100%; background: var(--bg); color: var(--text);
+  font-family: var(--font); -webkit-font-smoothing: antialiased;
+  line-height: 1.5; overscroll-behavior-y: none;
+}
+body { display: flex; flex-direction: column; min-height: 100vh; touch-action: manipulation; }
+.app {
+  display: flex; flex-direction: column; flex: 1;
+  max-width: 800px; width: 100%; margin: 0 auto;
+  height: 100vh; height: 100dvh;
+}
+.header {
+  padding: calc(0.9rem + env(safe-area-inset-top)) 1.2rem 0.4rem;
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.logo { display: flex; align-items: center; gap: 0.6rem; }
+.logo-icon {
+  width: 34px; height: 34px; background: var(--accent); border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-weight: 700; font-size: 1.2rem; flex-shrink: 0;
+}
+.logo-text { font-weight: 650; font-size: 1.3rem; letter-spacing: -0.02em; }
+.logo-text span { color: var(--accent); }
+.status-badge {
+  font-size: 0.75rem; background: #e6f7e6; color: #0a7e3a;
+  padding: 0.25rem 0.7rem; border-radius: 30px; font-weight: 500;
+  display: flex; align-items: center; gap: 0.3rem;
+  border: 1px solid #c8e6c9; white-space: nowrap;
+}
+.status-dot { width: 7px; height: 7px; background: #22c55e; border-radius: 50%; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-    body {
-      background: linear-gradient(145deg, #f4f7fc 0%, #e6ecf5 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 1.5rem;
-    }
+.mode-scroll { padding: 0.2rem 1rem 0.6rem; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-shrink: 0; }
+.mode-scroll::-webkit-scrollbar { display: none; }
+.mode-tabs { display: flex; gap: 0.5rem; min-width: max-content; padding: 0.15rem 0; }
+.mode-btn {
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text-muted); font-size: 0.85rem; font-weight: 500;
+  padding: 0.45rem 1rem; border-radius: 30px; cursor: pointer;
+  transition: all 0.15s ease; white-space: nowrap; font-family: var(--font);
+  box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 0.3rem;
+  user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.mode-btn:hover { background: #f1f5f9; }
+.mode-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+.mode-btn .emoji { font-size: 1rem; line-height: 1; }
 
-    .dashboard {
-      max-width: 1100px;
-      width: 100%;
-      background: rgba(255, 255, 255, 0.7);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border-radius: 3rem;
-      padding: 2rem 2rem 2.2rem;
-      box-shadow: 
-        0 20px 40px -10px rgba(0, 20, 40, 0.25),
-        inset 0 1px 2px rgba(255, 255, 255, 0.8);
-      border: 1px solid rgba(255, 255, 255, 0.5);
-      transition: all 0.2s ease;
-    }
+.chat-container {
+  flex: 1; overflow-y: auto; padding: 0.8rem 1rem 0.2rem;
+  display: flex; flex-direction: column; gap: 1rem;
+  scroll-behavior: smooth; -webkit-overflow-scrolling: touch;
+}
+.chat-container::-webkit-scrollbar { width: 5px; }
+.chat-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 20px; }
+.message { display: flex; gap: 0.6rem; max-width: 90%; animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.message.user { align-self: flex-end; flex-direction: row-reverse; }
+.message.ai { align-self: flex-start; }
+.avatar {
+  width: 30px; height: 30px; border-radius: 8px; display: flex;
+  align-items: center; justify-content: center; flex-shrink: 0;
+  font-size: 0.9rem; font-weight: 600; margin-top: 2px;
+}
+.avatar.ai-avatar { background: var(--accent-soft); color: var(--accent); }
+.avatar.user-avatar { background: var(--accent); color: white; }
+.bubble {
+  padding: 0.7rem 1rem; border-radius: var(--radius);
+  font-size: 0.95rem; line-height: 1.55; word-break: break-word;
+  white-space: pre-wrap; box-shadow: var(--shadow-sm); max-width: 100%;
+}
+.message.user .bubble { background: var(--user-bubble); color: var(--user-text); border-bottom-right-radius: 6px; }
+.message.ai .bubble { background: var(--ai-bubble); color: var(--ai-text); border-bottom-left-radius: 6px; }
+.bubble code { background: rgba(0,0,0,0.06); padding: 0.1rem 0.3rem; border-radius: 6px; font-size: 0.85em; font-family: 'SF Mono', monospace; }
+.message.user .bubble code { background: rgba(255,255,255,0.2); }
+.bubble pre { background: #0f172a; color: #e2e8f0; padding: 0.8rem; border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.85rem; margin: 0.5rem 0; white-space: pre-wrap; word-break: break-word; }
+.bubble pre code { background: transparent; padding: 0; color: inherit; }
+.bubble .attachments { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; }
+.bubble .attachments img { max-width: 180px; max-height: 180px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.4); object-fit: cover; }
+.bubble .attachments .file-chip {
+  background: rgba(255,255,255,0.2); border-radius: 10px;
+  padding: 0.35rem 0.6rem; font-size: 0.75rem;
+  max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
-    h1 {
-      font-size: 2.2rem;
-      font-weight: 600;
-      letter-spacing: -0.02em;
-      color: #0b2a41;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 0.25rem;
-    }
+.typing-indicator { display: flex; align-items: center; gap: 0.3rem; padding: 0.5rem 0.8rem; background: var(--ai-bubble); border-radius: var(--radius); border-bottom-left-radius: 6px; width: fit-content; }
+.typing-dot { width: 7px; height: 7px; background: #94a3b8; border-radius: 50%; animation: typingBounce 1.4s infinite ease-in-out; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingBounce { 0%,60%,100% { transform: translateY(0); opacity: 0.5; } 30% { transform: translateY(-4px); opacity: 1; } }
 
-    h1 span {
-      background: #1e6f9f;
-      color: white;
-      font-size: 1rem;
-      font-weight: 500;
-      padding: 0.25rem 1rem;
-      border-radius: 100px;
-      letter-spacing: 0.3px;
-      box-shadow: 0 4px 8px rgba(0, 60, 100, 0.15);
-    }
+.attachment-bar { display: none; flex-wrap: wrap; gap: 0.4rem; padding: 0.4rem 1rem 0.4rem; background: var(--surface); border-top: 1px solid var(--border); }
+.attachment-bar.show { display: flex; }
+.attachment-chip { display: flex; align-items: center; gap: 0.4rem; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 0.3rem 0.5rem; font-size: 0.8rem; max-width: 220px; }
+.attachment-chip img { width: 32px; height: 32px; object-fit: cover; border-radius: 6px; }
+.attachment-chip .file-icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent); border-radius: 6px; font-size: 0.9rem; flex-shrink: 0; }
+.attachment-chip .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
+.attachment-chip .remove { background: transparent; border: none; color: var(--text-muted); font-size: 1.1rem; cursor: pointer; line-height: 1; padding: 0 0.2rem; }
 
-    .subhead {
-      color: #4a5f73;
-      font-weight: 400;
-      margin-bottom: 2rem;
-      border-left: 4px solid #1e6f9f;
-      padding-left: 1rem;
-      font-size: 1rem;
-      background: rgba(30, 111, 159, 0.04);
-      border-radius: 0 8px 8px 0;
-      line-height: 1.4;
-    }
+.input-bar {
+  background: var(--surface); border-top: 1px solid var(--border);
+  padding: 0.7rem 1rem calc(0.9rem + env(safe-area-inset-bottom));
+  flex-shrink: 0;
+}
+.input-row { display: flex; gap: 0.4rem; align-items: flex-end; }
+.icon-btn {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 50%;
+  width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--text-muted); flex-shrink: 0;
+  transition: all 0.15s ease; -webkit-tap-highlight-color: transparent; padding: 0;
+}
+.icon-btn:hover { background: #f1f5f9; color: var(--accent); }
+.icon-btn:active { transform: scale(0.94); }
+.icon-btn svg { width: 20px; height: 20px; fill: currentColor; }
+.icon-btn.recording { background: var(--danger); color: white; border-color: var(--danger); animation: recordPulse 1s infinite; }
+@keyframes recordPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.5); } 50% { box-shadow: 0 0 0 8px rgba(220,38,38,0); } }
 
-    /* grid of cards */
-    .vitals-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 2.2rem;
-    }
+.input-wrapper { flex: 1; display: flex; align-items: center; background: var(--bg); border: 1px solid var(--border); border-radius: 24px; padding: 0.2rem 0.2rem 0.2rem 1rem; min-height: 48px; }
+.input-wrapper:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.input-wrapper textarea { flex: 1; border: none; background: transparent; resize: none; font-family: var(--font); font-size: 0.95rem; line-height: 1.4; padding: 0.5rem 0.4rem 0.5rem 0; color: var(--text); outline: none; max-height: 140px; min-height: 28px; width: 100%; }
+.input-wrapper textarea::placeholder { color: #94a3b8; }
 
-    .card {
-      background: white;
-      border-radius: 2rem;
-      padding: 1.6rem 1.4rem 1.3rem;
-      box-shadow: 0 10px 18px -6px rgba(0, 30, 60, 0.12);
-      border: 1px solid rgba(255, 255, 255, 0.9);
-      transition: transform 0.15s ease, box-shadow 0.2s;
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      overflow: hidden;
-    }
+.send-btn {
+  background: var(--accent); border: none; border-radius: 50%;
+  width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: white; flex-shrink: 0; -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.send-btn:hover:not(:disabled) { background: var(--accent-hover); }
+.send-btn:active:not(:disabled) { transform: scale(0.94); }
+.send-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+.send-btn svg { width: 20px; height: 20px; fill: currentColor; }
 
-    .card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 20px 26px -10px rgba(0, 40, 80, 0.2);
-      border-color: rgba(30, 111, 159, 0.2);
-    }
+.input-hint { font-size: 0.7rem; color: #94a3b8; text-align: center; margin-top: 0.4rem; }
+.error-bubble { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; padding: 0.7rem 1rem; border-radius: var(--radius); font-size: 0.9rem; align-self: center; max-width: 90%; text-align: center; }
 
-    .card::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 5px;
-      background: linear-gradient(90deg, #2d8fc7, #7ac7f0);
-      opacity: 0.8;
-    }
+.recording-banner { display: none; align-items: center; justify-content: center; gap: 0.6rem; padding: 0.5rem 1rem; background: #fef2f2; border-top: 1px solid #fecaca; color: var(--danger); font-size: 0.85rem; font-weight: 500; }
+.recording-banner.show { display: flex; }
+.recording-banner .dot { width: 9px; height: 9px; background: var(--danger); border-radius: 50%; animation: pulse 1s infinite; }
 
-    .card.bp-card::after { background: #c44536; }
-    .card.heart-card::after { background: #d94a5e; }
-    .card.oxygen-card::after { background: #2b7a78; }
-    .card.temp-card::after { background: #e68c3b; }
+.install-banner { display: none; margin: 0 1rem 0.6rem; padding: 0.7rem 1rem; background: var(--accent-soft); border: 1px solid #bfdbfe; border-radius: var(--radius-sm); font-size: 0.85rem; color: #1e40af; align-items: center; justify-content: space-between; gap: 0.6rem; }
+.install-banner.show { display: flex; }
+.install-banner button { background: var(--accent); border: none; color: white; padding: 0.4rem 0.9rem; border-radius: 20px; font-size: 0.8rem; font-weight: 500; cursor: pointer; font-family: var(--font); }
+.install-banner .close-x { background: transparent; color: #1e40af; padding: 0.2rem 0.4rem; font-size: 1.1rem; }
 
-    .card-icon {
-      font-size: 2rem;
-      margin-bottom: 0.5rem;
-      line-height: 1;
-    }
-
-    .card-label {
-      font-size: 0.85rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      font-weight: 600;
-      color: #5b6f82;
-      margin-bottom: 0.25rem;
-    }
-
-    .card-value {
-      font-size: 2.4rem;
-      font-weight: 700;
-      color: #102b3f;
-      line-height: 1.1;
-      display: flex;
-      align-items: baseline;
-      gap: 0.25rem;
-      flex-wrap: wrap;
-    }
-
-    .card-value small {
-      font-size: 1rem;
-      font-weight: 500;
-      color: #5e7a8f;
-      margin-left: 0.2rem;
-    }
-
-    .card-unit {
-      font-size: 0.9rem;
-      color: #607d8b;
-      font-weight: 400;
-      margin-left: 0.25rem;
-    }
-
-    .status-badge {
-      display: inline-block;
-      font-size: 0.7rem;
-      font-weight: 600;
-      padding: 0.2rem 0.7rem;
-      border-radius: 40px;
-      margin-top: 0.8rem;
-      background: #e7f0f8;
-      color: #1e6f9f;
-      align-self: flex-start;
-      letter-spacing: 0.2px;
-      border: 1px solid rgba(30, 111, 159, 0.15);
-    }
-
-    .status-badge.good { background: #e3f5eb; color: #1e7b4c; border-color: #b8e0cc; }
-    .status-badge.warning { background: #fff2db; color: #b45f1a; border-color: #f7d9aa; }
-    .status-badge.danger { background: #fde7e9; color: #b3303e; border-color: #f5c6cb; }
-
-    /* input panel */
-    .update-panel {
-      background: rgba(255, 255, 255, 0.6);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border-radius: 2rem;
-      padding: 1.6rem 2rem;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-end;
-      gap: 1.2rem;
-      border: 1px solid rgba(255, 255, 255, 0.8);
-      box-shadow: inset 0 1px 4px rgba(255, 255, 255, 0.6);
-    }
-
-    .input-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-      flex: 1 1 140px;
-    }
-
-    .input-group label {
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-      color: #2d4d66;
-      margin-left: 0.2rem;
-    }
-
-    .input-group input {
-      background: white;
-      border: 1px solid #cfdeed;
-      border-radius: 1.5rem;
-      padding: 0.7rem 1.2rem;
-      font-size: 1rem;
-      font-weight: 500;
-      color: #102b3f;
-      outline: none;
-      transition: 0.15s;
-      width: 100%;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
-    }
-
-    .input-group input:focus {
-      border-color: #1e6f9f;
-      box-shadow: 0 0 0 3px rgba(30, 111, 159, 0.15);
-    }
-
-    .input-group input::placeholder {
-      color: #a9bccd;
-      font-weight: 400;
-      font-size: 0.9rem;
-    }
-
-    .update-btn {
-      background: #0b2a41;
-      border: none;
-      border-radius: 2rem;
-      padding: 0.7rem 1.8rem;
-      font-size: 1rem;
-      font-weight: 500;
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      cursor: pointer;
-      transition: 0.15s;
-      box-shadow: 0 8px 16px -6px rgba(0, 40, 70, 0.3);
-      border: 1px solid #235a7a;
-      letter-spacing: 0.2px;
-      height: fit-content;
-      margin-bottom: 0.1rem;
-    }
-
-    .update-btn:hover {
-      background: #1b4b6b;
-      box-shadow: 0 12px 20px -8px #0b2a41;
-      transform: scale(1.01);
-    }
-
-    .update-btn:active {
-      transform: scale(0.98);
-      background: #0a1f30;
-    }
-
-    .footnote {
-      font-size: 0.75rem;
-      color: #6b859b;
-      text-align: center;
-      margin-top: 1.5rem;
-      letter-spacing: 0.2px;
-      border-top: 1px solid rgba(120, 150, 180, 0.2);
-      padding-top: 1.2rem;
-    }
-
-    .footnote i {
-      font-style: normal;
-      background: #e2ebf3;
-      padding: 0.1rem 0.5rem;
-      border-radius: 30px;
-    }
-
-    /* responsive */
-    @media (max-width: 700px) {
-      .dashboard { padding: 1.5rem; }
-      h1 { font-size: 1.8rem; flex-wrap: wrap; }
-      .update-panel { padding: 1.4rem; }
-      .card-value { font-size: 2rem; }
-    }
-
-    @media (max-width: 480px) {
-      .vitals-grid { grid-template-columns: 1fr 1fr; gap: 1rem; }
-      .card { padding: 1.2rem; }
-      .card-value { font-size: 1.7rem; }
-      .update-panel { flex-direction: column; align-items: stretch; }
-      .update-btn { justify-content: center; padding: 0.9rem; }
-    }
-  </style>
+@media (max-width: 480px) {
+  .logo-text { font-size: 1.15rem; }
+  .message { max-width: 95%; }
+  .bubble { padding: 0.6rem 0.85rem; font-size: 0.9rem; }
+  .input-wrapper { padding-left: 0.8rem; min-height: 44px; }
+  .send-btn, .icon-btn { width: 40px; height: 40px; }
+  .attachment-chip .name { max-width: 100px; }
+}
+</style>
 </head>
 <body>
-  <div class="dashboard">
-    <h1>
-      ❤️ Health Status
-      <span>live</span>
-    </h1>
-    <div class="subhead">
-      Blood pressure · heart rate · oxygen · temperature
+<div class="app">
+  <header class="header">
+    <div class="logo">
+      <div class="logo-icon">B</div>
+      <div class="logo-text">Brian<span>AI</span></div>
     </div>
+    <div class="status-badge"><span class="status-dot"></span> online</div>
+  </header>
 
-    <!-- vital cards grid -->
-    <div class="vitals-grid">
-      <!-- blood pressure -->
-      <div class="card bp-card">
-        <div class="card-icon">🩸</div>
-        <div class="card-label">Blood Pressure</div>
-        <div class="card-value" id="bpValue">118/76 <span class="card-unit">mmHg</span></div>
-        <div class="status-badge good" id="bpStatus">Normal</div>
-      </div>
-
-      <!-- heart rate -->
-      <div class="card heart-card">
-        <div class="card-icon">💓</div>
-        <div class="card-label">Heart Rate</div>
-        <div class="card-value" id="heartValue">72 <span class="card-unit">bpm</span></div>
-        <div class="status-badge good" id="heartStatus">Normal</div>
-      </div>
-
-      <!-- oxygen -->
-      <div class="card oxygen-card">
-        <div class="card-icon">🫁</div>
-        <div class="card-label">Oxygen (SpO₂)</div>
-        <div class="card-value" id="oxygenValue">98 <span class="card-unit">%</span></div>
-        <div class="status-badge good" id="oxygenStatus">Normal</div>
-      </div>
-
-      <!-- temperature -->
-      <div class="card temp-card">
-        <div class="card-icon">🌡️</div>
-        <div class="card-label">Temperature</div>
-        <div class="card-value" id="tempValue">36.6 <span class="card-unit">°C</span></div>
-        <div class="status-badge good" id="tempStatus">Normal</div>
-      </div>
-    </div>
-
-    <!-- update panel -->
-    <div class="update-panel">
-      <div class="input-group">
-        <label>Systolic (mmHg)</label>
-        <input type="number" id="systolicInput" placeholder="e.g. 120" value="118" step="1" min="50" max="250">
-      </div>
-      <div class="input-group">
-        <label>Diastolic (mmHg)</label>
-        <input type="number" id="diastolicInput" placeholder="e.g. 80" value="76" step="1" min="30" max="150">
-      </div>
-      <div class="input-group">
-        <label>Heart rate (bpm)</label>
-        <input type="number" id="heartInput" placeholder="e.g. 72" value="72" step="1" min="30" max="220">
-      </div>
-      <div class="input-group">
-        <label>Oxygen SpO₂ (%)</label>
-        <input type="number" id="oxygenInput" placeholder="e.g. 98" value="98" step="0.1" min="70" max="100">
-      </div>
-      <div class="input-group">
-        <label>Temp (°C)</label>
-        <input type="number" id="tempInput" placeholder="e.g. 36.6" value="36.6" step="0.1" min="30" max="45">
-      </div>
-      <button class="update-btn" id="updateBtn">
-        ⟳ Update
-      </button>
-    </div>
-    <div class="footnote">
-      <i>BP</i> &nbsp;·&nbsp; status is based on clinical guidelines &nbsp;·&nbsp; refresh to update
+  <div class="install-banner" id="installBanner">
+    <span>📲 Install Brian AI as an app</span>
+    <div style="display:flex;gap:0.3rem;">
+      <button id="installBtn">Install</button>
+      <button class="close-x" id="installClose">×</button>
     </div>
   </div>
 
-  <script>
-    (function() {
-      // DOM elements
-      const bpValueEl = document.getElementById('bpValue');
-      const bpStatusEl = document.getElementById('bpStatus');
-      const heartValueEl = document.getElementById('heartValue');
-      const heartStatusEl = document.getElementById('heartStatus');
-      const oxygenValueEl = document.getElementById('oxygenValue');
-      const oxygenStatusEl = document.getElementById('oxygenStatus');
-      const tempValueEl = document.getElementById('tempValue');
-      const tempStatusEl = document.getElementById('tempStatus');
+  <div class="mode-scroll">
+    <div class="mode-tabs" id="modeTabs">
+      <button class="mode-btn active" data-mode="general"><span class="emoji">🧠</span> General</button>
+      <button class="mode-btn" data-mode="education"><span class="emoji">📚</span> Education</button>
+      <button class="mode-btn" data-mode="business"><span class="emoji">💼</span> Business</button>
+      <button class="mode-btn" data-mode="agriculture"><span class="emoji">🌾</span> Agriculture</button>
+      <button class="mode-btn" data-mode="technology"><span class="emoji">💻</span> Technology</button>
+      <button class="mode-btn" data-mode="science"><span class="emoji">🔬</span> Science</button>
+    </div>
+  </div>
 
-      // input fields
-      const systolicInput = document.getElementById('systolicInput');
-      const diastolicInput = document.getElementById('diastolicInput');
-      const heartInput = document.getElementById('heartInput');
-      const oxygenInput = document.getElementById('oxygenInput');
-      const tempInput = document.getElementById('tempInput');
-      const updateBtn = document.getElementById('updateBtn');
+  <main class="chat-container" id="chatContainer"></main>
 
-      // helper: set badge class and text
-      function setBadge(element, text, type) {
-        element.textContent = text;
-        element.classList.remove('good', 'warning', 'danger');
-        if (type) element.classList.add(type);
+  <div class="recording-banner" id="recordingBanner">
+    <span class="dot"></span><span>Listening… speak now</span>
+  </div>
+
+  <div class="attachment-bar" id="attachmentBar"></div>
+
+  <div class="input-bar">
+    <div class="input-row">
+      <button class="icon-btn" id="imageBtn" aria-label="Upload image" title="Upload image">
+        <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+      </button>
+      <button class="icon-btn" id="fileBtn" aria-label="Upload file" title="Upload file">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
+      </button>
+      <button class="icon-btn" id="micBtn" aria-label="Record voice" title="Voice input">
+        <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+      </button>
+      <div class="input-wrapper">
+        <textarea id="messageInput" rows="1" placeholder="Ask Brian anything..."></textarea>
+      </div>
+      <button class="send-btn" id="sendBtn" aria-label="Send" disabled>
+        <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+      </button>
+    </div>
+    <div class="input-hint">Brian can make mistakes. Verify important info.</div>
+  </div>
+</div>
+
+<input type="file" id="imageInput" accept="image/*" multiple hidden />
+<input type="file" id="fileInput" accept=".txt,.md,.csv,.json,.pdf,.doc,.docx,.js,.py,.java,.html,.css,.xml,.log" multiple hidden />
+
+<script>
+(function () {
+  "use strict";
+
+  // ============================================================
+  // 🔑 GROQ API KEY — paste your real key here
+  // ============================================================
+  const GROQ_API_KEY = "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"
+;
+  const GROQ_TEXT_MODEL = "openai/gpt-oss-120b";
+  const GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+  // ============================================================
+
+  // ---------- PWA (inline) ----------
+  (function setupPWA() {
+    const svgIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#2563eb"/><text x="50%" y="50%" font-family="Inter,Arial,sans-serif" font-size="300" font-weight="700" fill="#fff" text-anchor="middle" dominant-baseline="central">B</text></svg>';
+    const iconUrl = "data:image/svg+xml;base64," + btoa(svgIcon);
+    const manifest = {
+      name: "Brian AI", short_name: "Brian AI",
+      description: "AI problem-solving assistant",
+      start_url: ".", scope: ".", display: "standalone",
+      background_color: "#f8fafc", theme_color: "#2563eb",
+      icons: [
+        { src: iconUrl, sizes: "192x192", type: "image/svg+xml", purpose: "any" },
+        { src: iconUrl, sizes: "512x512", type: "image/svg+xml", purpose: "any" },
+        { src: iconUrl, sizes: "any", type: "image/svg+xml", purpose: "maskable" }
+      ]
+    };
+    document.getElementById("pwa-manifest").setAttribute("href",
+      URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" })));
+    document.getElementById("apple-touch-icon").setAttribute("href", iconUrl);
+
+    if ("serviceWorker" in navigator) {
+      const sw = 'self.addEventListener("install",()=>self.skipWaiting());self.addEventListener("activate",e=>e.waitUntil(self.clients.claim()));';
+      navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], { type: "application/javascript" }))).catch(()=>{});
+    }
+
+    let dp = null;
+    const banner = document.getElementById("installBanner");
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault(); dp = e;
+      if (!localStorage.getItem("brian_install_dismissed")) banner.classList.add("show");
+    });
+    document.getElementById("installBtn").onclick = async () => {
+      if (!dp) return; dp.prompt(); await dp.userChoice; dp = null; banner.classList.remove("show");
+    };
+    document.getElementById("installClose").onclick = () => {
+      banner.classList.remove("show"); localStorage.setItem("brian_install_dismissed", "1");
+    };
+  })();
+
+  // ---------- DOM ----------
+  const chatContainer = document.getElementById('chatContainer');
+  const messageInput = document.getElementById('messageInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const modeTabs = document.getElementById('modeTabs');
+  const imageBtn = document.getElementById('imageBtn');
+  const fileBtn = document.getElementById('fileBtn');
+  const micBtn = document.getElementById('micBtn');
+  const imageInput = document.getElementById('imageInput');
+  const fileInput = document.getElementById('fileInput');
+  const attachmentBar = document.getElementById('attachmentBar');
+  const recordingBanner = document.getElementById('recordingBanner');
+
+  let currentMode = 'general';
+  let history = [];
+  let isProcessing = false;
+  let pendingAttachments = [];
+
+  // ---------- UTILITIES ----------
+  function autoResizeTextarea() {
+    messageInput.style.height = 'auto';
+    messageInput.style.height = Math.min(messageInput.scrollHeight, 140) + 'px';
+  }
+  function updateSendState() {
+    const hasText = messageInput.value.trim().length > 0;
+    const hasAttach = pendingAttachments.length > 0;
+    sendBtn.disabled = (!hasText && !hasAttach) || isProcessing;
+  }
+  function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+  function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsText(file);
+    });
+  }
+
+  // ---------- TEXTAREA ----------
+  messageInput.addEventListener('input', () => { autoResizeTextarea(); updateSendState(); });
+
+  // ---------- MODE ----------
+  modeTabs.addEventListener('click', (e) => {
+    const btn = e.target.closest('.mode-btn');
+    if (!btn) return;
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode || 'general';
+  });
+
+  // ---------- IMAGE UPLOAD ----------
+  imageBtn.addEventListener('click', () => imageInput.click());
+  imageInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files || []);
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) continue;
+      if (file.size > 8 * 1024 * 1024) { showError(`"${file.name}" too large (max 8 MB).`); continue; }
+      const dataUrl = await fileToDataUrl(file);
+      pendingAttachments.push({ type: 'image', name: file.name, mime: file.type, dataUrl });
+    }
+    imageInput.value = '';
+    renderAttachments();
+    updateSendState();
+  });
+
+  // ---------- FILE UPLOAD ----------
+  fileBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files || []);
+    for (const file of files) {
+      if (file.size > 4 * 1024 * 1024) { showError(`"${file.name}" too large (max 4 MB).`); continue; }
+      let text = '';
+      try { text = await readFileAsText(file); }
+      catch { text = `[Could not read "${file.name}"]`; }
+      pendingAttachments.push({ type: 'file', name: file.name, mime: file.type || 'text/plain', text: text.slice(0, 40000) });
+    }
+    fileInput.value = '';
+    renderAttachments();
+    updateSendState();
+  });
+
+  // ---------- VOICE INPUT (Web Speech API) ----------
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+  let isRecording = false;
+
+  if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event) => {
+      let finalText = '';
+      let interimText = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finalText += transcript;
+        else interimText += transcript;
       }
-
-      // --- Blood pressure status (based on ACC/AHA guidelines) ---
-      function getBpStatus(systolic, diastolic) {
-        if (systolic >= 180 || diastolic >= 120) {
-          return { text: 'Hypertensive Crisis', type: 'danger' };
-        }
-        if (systolic >= 140 || diastolic >= 90) {
-          return { text: 'Hypertension Stage 2', type: 'danger' };
-        }
-        if (systolic >= 130 || diastolic >= 80) {
-          return { text: 'Hypertension Stage 1', type: 'warning' };
-        }
-        if (systolic >= 120 && systolic < 130 && diastolic < 80) {
-          return { text: 'Elevated', type: 'warning' };
-        }
-        if (systolic < 120 && diastolic < 80) {
-          // check for low BP (hypotension)
-          if (systolic < 90 || diastolic < 60) {
-            return { text: 'Low', type: 'warning' };
-          }
-          return { text: 'Normal', type: 'good' };
-        }
-        // fallback
-        return { text: 'Normal', type: 'good' };
+      if (finalText) {
+        messageInput.value = (messageInput.value + ' ' + finalText).trim();
+      } else if (interimText) {
+        // Show interim by appending to a temporary display; keep it simple: just set if empty
       }
+      autoResizeTextarea();
+      updateSendState();
+    };
 
-      // --- Heart rate status (adult resting) ---
-      function getHeartStatus(bpm) {
-        if (bpm < 40) return { text: 'Severe Bradycardia', type: 'danger' };
-        if (bpm < 60) return { text: 'Bradycardia', type: 'warning' };
-        if (bpm <= 100) return { text: 'Normal', type: 'good' };
-        if (bpm <= 120) return { text: 'Tachycardia', type: 'warning' };
-        return { text: 'Severe Tachycardia', type: 'danger' };
+    recognition.onerror = (event) => {
+      console.warn('Speech error:', event.error);
+      if (event.error === 'not-allowed') showError('Microphone access denied. Allow it in browser settings.');
+      stopRecording();
+    };
+
+    recognition.onend = () => { stopRecording(); };
+  }
+
+  function startRecording() {
+    if (!recognition) { showError('Voice input not supported on this browser. Try Chrome or Edge.'); return; }
+    try {
+      recognition.start();
+      isRecording = true;
+      micBtn.classList.add('recording');
+      recordingBanner.classList.add('show');
+    } catch (err) { console.warn(err); }
+  }
+  function stopRecording() {
+    if (recognition && isRecording) { try { recognition.stop(); } catch {} }
+    isRecording = false;
+    micBtn.classList.remove('recording');
+    recordingBanner.classList.remove('show');
+  }
+  micBtn.addEventListener('click', () => { isRecording ? stopRecording() : startRecording(); });
+
+  // ---------- ATTACHMENT PREVIEW ----------
+  function renderAttachments() {
+    attachmentBar.innerHTML = '';
+    if (pendingAttachments.length === 0) { attachmentBar.classList.remove('show'); return; }
+    attachmentBar.classList.add('show');
+    pendingAttachments.forEach((att, idx) => {
+      const chip = document.createElement('div');
+      chip.className = 'attachment-chip';
+      if (att.type === 'image') {
+        chip.innerHTML = `<img src="${att.dataUrl}" alt=""><span class="name">${escapeHtml(att.name)}</span>`;
+      } else {
+        chip.innerHTML = `<span class="file-icon">📄</span><span class="name">${escapeHtml(att.name)}</span>`;
       }
+      const rm = document.createElement('button');
+      rm.className = 'remove'; rm.textContent = '×'; rm.title = 'Remove';
+      rm.onclick = () => { pendingAttachments.splice(idx, 1); renderAttachments(); updateSendState(); };
+      chip.appendChild(rm);
+      attachmentBar.appendChild(chip);
+    });
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
 
-      // --- Oxygen saturation (SpO2) ---
-      function getOxygenStatus(spo2) {
-        if (spo2 >= 95) return { text: 'Normal', type: 'good' };
-        if (spo2 >= 90) return { text: 'Low', type: 'warning' };
-        return { text: 'Critical', type: 'danger' };
-      }
-
-      // --- Body temperature (°C) ---
-      function getTempStatus(temp) {
-        if (temp < 35.0) return { text: 'Hypothermia', type: 'danger' };
-        if (temp < 36.1) return { text: 'Low', type: 'warning' };
-        if (temp <= 37.2) return { text: 'Normal', type: 'good' };
-        if (temp <= 38.0) return { text: 'Low fever', type: 'warning' };
-        if (temp <= 39.0) return { text: 'Fever', type: 'warning' };
-        return { text: 'High fever', type: 'danger' };
-      }
-
-      // --- core update function that reads inputs and updates UI ---
-      function updateVitals() {
-        // read values, fallback to previous or defaults if invalid
-        let systolic = parseFloat(systolicInput.value);
-        let diastolic = parseFloat(diastolicInput.value);
-        let heart = parseFloat(heartInput.value);
-        let oxygen = parseFloat(oxygenInput.value);
-        let temp = parseFloat(tempInput.value);
-
-        // validate / clamp and keep sensible ranges, but also treat empty fields
-        if (isNaN(systolic) || systolic < 50 || systolic > 250) {
-          systolic = 118; // fallback
-          systolicInput.value = 118;
-        }
-        if (isNaN(diastolic) || diastolic < 30 || diastolic > 150) {
-          diastolic = 76;
-          diastolicInput.value = 76;
-        }
-        if (isNaN(heart) || heart < 30 || heart > 220) {
-          heart = 72;
-          heartInput.value = 72;
-        }
-        if (isNaN(oxygen) || oxygen < 70 || oxygen > 100) {
-          oxygen = 98;
-          oxygenInput.value = 98;
-        }
-        if (isNaN(temp) || temp < 30 || temp > 45) {
-          temp = 36.6;
-          tempInput.value = 36.6;
-        }
-
-        // round for cleaner display
-        systolic = Math.round(systolic);
-        diastolic = Math.round(diastolic);
-        heart = Math.round(heart);
-        oxygen = Math.round(oxygen * 10) / 10;   // one decimal
-        temp = Math.round(temp * 10) / 10;
-
-        // ----- BP display -----
-        bpValueEl.innerHTML = `${systolic}/${diastolic} <span class="card-unit">mmHg</span>`;
-        const bpStatus = getBpStatus(systolic, diastolic);
-        setBadge(bpStatusEl, bpStatus.text, bpStatus.type);
-
-        // ----- Heart display -----
-        heartValueEl.innerHTML = `${heart} <span class="card-unit">bpm</span>`;
-        const heartStatus = getHeartStatus(heart);
-        setBadge(heartStatusEl, heartStatus.text, heartStatus.type);
-
-        // ----- Oxygen display -----
-        oxygenValueEl.innerHTML = `${oxygen} <span class="card-unit">%</span>`;
-        const oxygenStatus = getOxygenStatus(oxygen);
-        setBadge(oxygenStatusEl, oxygenStatus.text, oxygenStatus.type);
-
-        // ----- Temperature display -----
-        tempValueEl.innerHTML = `${temp.toFixed(1)} <span class="card-unit">°C</span>`;
-        const tempStatus = getTempStatus(temp);
-        setBadge(tempStatusEl, tempStatus.text, tempStatus.type);
-      }
-
-      // --- update button handler ---
-      updateBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        updateVitals();
-      });
-
-      // --- initial update on page load (uses pre-filled values) ---
-      window.addEventListener('DOMContentLoaded', function() {
-        // set default values in inputs if not present
-        if (!systolicInput.value) systolicInput.value = 118;
-        if (!diastolicInput.value) diastolicInput.value = 76;
-        if (!heartInput.value) heartInput.value = 72;
-        if (!oxygenInput.value) oxygenInput.value = 98;
-        if (!tempInput.value) tempInput.value = 36.6;
-        updateVitals();
-      });
-
-      // --- also allow pressing Enter in any input to trigger update ---
-      const inputs = [systolicInput, diastolicInput, heartInput, oxygenInput, tempInput];
-      inputs.forEach(input => {
-        input.addEventListener('keypress', function(e) {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            updateVitals();
+  // ---------- MESSAGE RENDERING ----------
+  function createMessageElement(role, content, attachments) {
+    const wrap = document.createElement('div');
+    wrap.className = 'message ' + role;
+    const av = document.createElement('div');
+    av.className = 'avatar ' + (role === 'user' ? 'user-avatar' : 'ai-avatar');
+    av.textContent = role === 'user' ? 'U' : 'B';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    if (role === 'ai' || role === 'assistant') {
+      bubble.innerHTML = formatAIContent(content || '');
+    } else {
+      bubble.textContent = content || '';
+      if (attachments && attachments.length) {
+        const atts = document.createElement('div');
+        atts.className = 'attachments';
+        attachments.forEach(a => {
+          if (a.type === 'image') {
+            const img = document.createElement('img');
+            img.src = a.dataUrl; img.alt = a.name;
+            atts.appendChild(img);
+          } else {
+            const chip = document.createElement('div');
+            chip.className = 'file-chip';
+            chip.textContent = '📄 ' + a.name;
+            atts.appendChild(chip);
           }
         });
+        bubble.appendChild(atts);
+      }
+    }
+    wrap.appendChild(av); wrap.appendChild(bubble);
+    return wrap;
+  }
+  function formatAIContent(text) {
+    if (!text) return '';
+    let esc = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    const codeRe = /```(\w*)\n?([\s\S]*?)```/g;
+    const parts = []; let last = 0, m;
+    while ((m = codeRe.exec(esc)) !== null) {
+      if (m.index > last) parts.push({ t: 'text', c: esc.slice(last, m.index) });
+      parts.push({ t: 'code', c: m[2] || '' });
+      last = m.index + m[0].length;
+    }
+    if (last < esc.length) parts.push({ t: 'text', c: esc.slice(last) });
+    if (!parts.length) parts.push({ t: 'text', c: esc });
+    let html = '';
+    for (const p of parts) {
+      if (p.t === 'code') html += `<pre><code>${p.c}</code></pre>`;
+      else html += p.c.replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\n/g,'<br>');
+    }
+    return html;
+  }
+
+  function addMessageToChat(role, content, attachments) {
+    const el = createMessageElement(role, content, attachments);
+    chatContainer.appendChild(el);
+    requestAnimationFrame(() => { chatContainer.scrollTop = chatContainer.scrollHeight; });
+    return el;
+  }
+  function showTypingIndicator() {
+    const d = document.createElement('div');
+    d.className = 'message ai'; d.id = 'typingIndicator';
+    d.innerHTML = `<div class="avatar ai-avatar">B</div><div class="typing-indicator"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>`;
+    chatContainer.appendChild(d);
+    requestAnimationFrame(() => { chatContainer.scrollTop = chatContainer.scrollHeight; });
+  }
+  function removeTypingIndicator() {
+    const el = document.getElementById('typingIndicator'); if (el) el.remove();
+  }
+  function showError(msg) {
+    const d = document.createElement('div');
+    d.className = 'error-bubble'; d.textContent = msg;
+    chatContainer.appendChild(d);
+    requestAnimationFrame(() => { chatContainer.scrollTop = chatContainer.scrollHeight; });
+  }
+
+  // ---------- SYSTEM PROMPT ----------
+  const SYSTEM_INSTRUCTIONS = `You are Brian AI, a helpful general-purpose problem-solving assistant.
+Be clear, practical, and step-by-step. Adapt to the user's level.
+For programming, give runnable examples. For math, show working.
+If images are provided, describe and analyze them.
+If information is uncertain, say so. Be respectful and concise.`;
+
+  // ---------- SEND ----------
+  async function sendMessage() {
+    const text = messageInput.value.trim();
+    const attachments = pendingAttachments.slice();
+    if ((!text && attachments.length === 0) || isProcessing) return;
+
+    if (!GROQ_API_KEY || GROQ_API_KEY.includes("REPLACE_WITH_YOUR_REAL_KEY")) {
+      showError("API key missing. Edit index.html and paste your Groq key in GROQ_API_KEY.");
+      return;
+    }
+
+    isProcessing = true;
+    updateSendState();
+
+    // Clear input & attachments
+    messageInput.value = '';
+    autoResizeTextarea();
+    pendingAttachments = [];
+    renderAttachments();
+
+    // Add user message
+    addMessageToChat('user', text, attachments);
+
+    // Build the user content for history. Text-only for text model.
+    // For the current turn, decide which model to call.
+    const imagesInTurn = attachments.filter(a => a.type === 'image');
+    const filesInTurn = attachments.filter(a => a.type === 'file');
+    const useVision = imagesInTurn.length > 0;
+
+    // Build the current user message content
+    let userContentForAPI;
+    if (useVision) {
+      // Vision model expects: content: [{type:'text',text:...}, {type:'image_url',image_url:{url:dataUrl}}]
+      const parts = [];
+      let combinedText = text || '';
+      if (filesInTurn.length) {
+        combinedText += '\n\n--- Attached files ---\n' +
+          filesInTurn.map(f => `### ${f.name}\n${f.text}`).join('\n\n');
+      }
+      if (combinedText) parts.push({ type: 'text', text: combinedText || 'Please analyze this image.' });
+      imagesInTurn.forEach(img => parts.push({ type: 'image_url', image_url: { url: img.dataUrl } }));
+      userContentForAPI = parts;
+    } else {
+      let combinedText = text || '';
+      if (filesInTurn.length) {
+        combinedText += '\n\n--- Attached files ---\n' +
+          filesInTurn.map(f => `### ${f.name}\n${f.text}`).join('\n\n');
+      }
+      userContentForAPI = combinedText;
+    }
+
+    // Save to history (text-only version for subsequent turns to keep context)
+    let historyEntry = text;
+    if (filesInTurn.length) historyEntry += `\n[Attached files: ${filesInTurn.map(f=>f.name).join(', ')}]`;
+    if (imagesInTurn.length) historyEntry += `\n[Attached images: ${imagesInTurn.map(i=>i.name).join(', ')}]`;
+    history.push({ role: 'user', content: historyEntry });
+
+    showTypingIndicator();
+
+    try {
+      const model = useVision ? GROQ_VISION_MODEL : GROQ_TEXT_MODEL;
+      const messages = [
+        { role: 'system', content: SYSTEM_INSTRUCTIONS + `\nCurrent specialist mode: ${currentMode}.` },
+        // Include previous history as text-only
+        ...history.slice(0, -1).map(h => ({ role: h.role, content: h.content })),
+        { role: 'user', content: userContentForAPI }
+      ];
+
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + GROQ_API_KEY
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: messages,
+          temperature: 0.7,
+          max_tokens: 2048
+        })
       });
-    })();
-  </script>
+
+      const data = await res.json();
+      removeTypingIndicator();
+
+      if (!res.ok) {
+        const msg = (data && data.error && data.error.message) || ("Request failed (" + res.status + ")");
+        showError(msg);
+        history.pop();
+      } else {
+        const answer = (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || "I could not generate a response.";
+        addMessageToChat('ai', answer);
+        history.push({ role: 'assistant', content: answer });
+      }
+    } catch (err) {
+      removeTypingIndicator();
+      showError("Network error. Check your connection and try again.");
+      console.error(err);
+      history.pop();
+    } finally {
+      isProcessing = false;
+      updateSendState();
+      messageInput.focus();
+      if (history.length > 40) history = history.slice(-40);
+    }
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+  messageInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!sendBtn.disabled) sendMessage();
+    }
+  });
+
+  // ---------- WELCOME ----------
+  addMessageToChat('ai', 'Hello! I am Brian AI. I can help with general questions, education, business, agriculture, technology, and science. You can also send me images, documents, or use the microphone to talk. How can I assist you today?');
+
+  // ---------- INIT ----------
+  autoResizeTextarea();
+  updateSendState();
+  if (window.innerWidth > 768) messageInput.focus();
+})();
+</script>
 </body>
 </html>
