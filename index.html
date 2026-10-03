@@ -66,7 +66,7 @@ body{display:flex;flex-direction:column;min-height:100vh;touch-action:manipulati
 @keyframes typingBounce{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-4px);opacity:1}}
 .attachment-bar{display:none;flex-wrap:wrap;gap:.4rem;padding:.4rem 1rem .6rem;background:var(--surface);border-top:1px solid var(--border)}
 .attachment-bar.show{display:flex}
-.attachment-chip{display:flex;align-items:center;gap:.4rem;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:.3rem .5rem;font-size:.8rem;max-width:220px}
+.attachment-chip{display:flex;align-items:center;gap:.4rem;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:.3rem .5rem;font-size:.8rem;max-width:240px}
 .attachment-chip img{width:32px;height:32px;object-fit:cover;border-radius:6px}
 .attachment-chip .file-icon{width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent);border-radius:6px;font-size:.9rem;flex-shrink:0}
 .attachment-chip .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px}
@@ -179,22 +179,35 @@ body{display:flex;flex-direction:column;min-height:100vh;touch-action:manipulati
 <input type="file" id="imageInput" accept="image/*" multiple hidden>
 <input type="file" id="fileInput" accept=".txt,.md,.csv,.json,.pdf,.doc,.docx,.js,.py,.java,.html,.css,.xml,.log,.rtf" multiple hidden>
 
+<!-- PDF.js loaded from CDN so we can extract text from PDFs in-browser -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
 <script>
 (function(){
 "use strict";
 
 // ============================================================
-// 🔑 GROQ API KEY — PASTE YOUR REAL KEY BELOW
+// 🔑 GROQ API KEY
+// ⚠️ REVOKE THIS KEY — it was shared publicly in chat.
+//    Get a new one at https://console.groq.com/keys
 // ============================================================
-var GROQ_API_KEY = "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";
+var GROQ_API_KEY = "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";
 
-// Text model (chat, voice, documents)
+// Text model — Groq's current recommended chat model
 var GROQ_TEXT_MODEL = "openai/gpt-oss-120b";
 
-// Vision model — Groq's current image-capable model.
-// If this name stops working, check https://api.groq.com/openai/v1/models
-// and look for a model with "vision" or "llama-4" in the name.
-var GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+// Vision model fallback chain — tries each in order.
+// Groq rotates these; the app auto-tries the next if one fails.
+var GROQ_VISION_MODELS = [
+  "meta-llama/llama-4-scout-17b-16e-instruct",
+  "meta-llama/llama-4-maverick-17b-128e-instruct",
+  "llama-3.2-90b-vision-preview",
+  "llama-3.2-11b-vision-preview"
+];
+
+// Max upload sizes (raised from previous values)
+var MAX_IMAGE_MB = 15;
+var MAX_FILE_MB = 15;
 // ============================================================
 
 // ---------- PWA BOOTSTRAP ----------
@@ -223,7 +236,7 @@ document.getElementById("pwa-manifest").setAttribute("href",URL.createObjectURL(
 document.getElementById("apple-touch-icon").setAttribute("href",icon);
 
 if("serviceWorker" in navigator){
-var sw='var C="brian-ai-v5";'+
+var sw='var C="brian-ai-v6";'+
 'self.addEventListener("install",function(){self.skipWaiting()});'+
 'self.addEventListener("activate",function(e){e.waitUntil(self.clients.claim())});'+
 'self.addEventListener("fetch",function(e){'+
@@ -285,9 +298,35 @@ var pendingAttachments=[];
 // ---------- UTILITIES ----------
 function fileToDataUrl(f){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result)};r.onerror=rej;r.readAsDataURL(f)})}
 function readFileAsText(f){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(String(r.result))};r.onerror=rej;r.readAsText(f)})}
+function readFileAsArrayBuffer(f){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result)};r.onerror=rej;r.readAsArrayBuffer(f)})}
 function autoResize(){messageInput.style.height="auto";messageInput.style.height=Math.min(messageInput.scrollHeight,140)+"px"}
 function updateSendState(){var hasText=messageInput.value.trim().length>0;var hasAtt=pendingAttachments.length>0;sendBtn.disabled=(!hasText&&!hasAtt)||isProcessing}
 messageInput.addEventListener("input",function(){autoResize();updateSendState()});
+
+// ---------- PDF TEXT EXTRACTION ----------
+async function extractPdfText(file){
+  try{
+    if(!window.pdfjsLib)return "[PDF library not loaded. Cannot read "+file.name+"]";
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    var buf=await readFileAsArrayBuffer(file);
+    var pdf=await window.pdfjsLib.getDocument({data:buf}).promise;
+    var out=[];
+    var maxPages=Math.min(pdf.numPages,30); // cap at 30 pages
+    for(var i=1;i<=maxPages;i++){
+      try{
+        var page=await pdf.getPage(i);
+        var tc=await page.getTextContent();
+        var strs=tc.items.map(function(it){return it.str}).join(" ");
+        if(strs.trim())out.push("--- Page "+i+" ---\n"+strs);
+      }catch(e){}
+    }
+    if(pdf.numPages>maxPages)out.push("\n[... only first "+maxPages+" pages read]");
+    return out.join("\n\n") || "[No extractable text in PDF — it may be a scanned image]";
+  }catch(err){
+    console.error("PDF extract failed:",err);
+    return "[Could not extract text from "+file.name+": "+(err.message||err)+"]";
+  }
+}
 
 // ---------- MODE ----------
 modeTabs.addEventListener("click",function(e){
@@ -306,7 +345,7 @@ var chain=Promise.resolve();
 files.forEach(function(f){
 chain=chain.then(function(){
 if(!f.type||f.type.indexOf("image/")!==0)return;
-if(f.size>8*1024*1024){showError('Image "'+f.name+'" is too large (max 8 MB).');return}
+if(f.size>MAX_IMAGE_MB*1024*1024){showError('Image "'+f.name+'" is too large (max '+MAX_IMAGE_MB+' MB).');return}
 return fileToDataUrl(f).then(function(d){
 pendingAttachments.push({type:"image",name:f.name,mime:f.type,dataUrl:d});
 renderAttachments();updateSendState();
@@ -323,9 +362,17 @@ var files=Array.prototype.slice.call(fileInput.files||[]);
 var chain=Promise.resolve();
 files.forEach(function(f){
 chain=chain.then(function(){
-if(f.size>4*1024*1024){showError('File "'+f.name+'" is too large (max 4 MB).');return}
+if(f.size>MAX_FILE_MB*1024*1024){showError('File "'+f.name+'" is too large (max '+MAX_FILE_MB+' MB).');return}
+var isPdf=(f.type==="application/pdf")||/\.pdf$/i.test(f.name);
+if(isPdf){
+showInfo('Reading PDF "'+f.name+'"…');
+return extractPdfText(f).then(function(txt){
+pendingAttachments.push({type:"file",name:f.name,mime:"application/pdf",text:txt.slice(0,120000)});
+renderAttachments();updateSendState();
+});
+}
 return readFileAsText(f).then(function(t){
-pendingAttachments.push({type:"file",name:f.name,mime:f.type||"text/plain",text:t.slice(0,40000)});
+pendingAttachments.push({type:"file",name:f.name,mime:f.type||"text/plain",text:t.slice(0,80000)});
 renderAttachments();updateSendState();
 }).catch(function(){
 pendingAttachments.push({type:"file",name:f.name,mime:f.type||"text/plain",text:"[Could not read "+f.name+"]"});
@@ -478,6 +525,48 @@ var SYSTEM_INSTRUCTIONS=
 "- Never claim to have performed an action you did not perform.\n"+
 "- Be respectful, concise by default, and thorough when needed.\n";
 
+// ---------- GROQ FETCH ----------
+async function groqFetch(model,userContent){
+  var body={
+    model:model,
+    messages:[{role:"system",content:SYSTEM_INSTRUCTIONS+"\nCurrent specialist mode: "+currentMode+"."}]
+      .concat(history.slice(0,-1))
+      .concat([{role:"user",content:userContent}]),
+    temperature:0.7,
+    max_tokens:2048
+  };
+  var r=await fetch("https://api.groq.com/openai/v1/chat/completions",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_API_KEY},
+    body:JSON.stringify(body)
+  });
+  var data=await r.json();
+  return {ok:r.ok,status:r.status,data:data};
+}
+
+// Try vision models one after another until one works
+async function callWithVisionFallback(userContent){
+  var lastErr="";
+  for(var i=0;i<GROQ_VISION_MODELS.length;i++){
+    var model=GROQ_VISION_MODELS[i];
+    try{
+      var res=await groqFetch(model,userContent);
+      if(res.ok)return res;
+      lastErr=(res.data&&res.data.error&&res.data.error.message)||("Model "+model+" failed");
+      // If the error is about the model, try the next one.
+      if(lastErr.toLowerCase().indexOf("model")>-1||lastErr.toLowerCase().indexOf("exist")>-1||lastErr.toLowerCase().indexOf("access")>-1){
+        continue;
+      }else{
+        return res; // other error, stop trying
+      }
+    }catch(e){
+      lastErr=e.message||String(e);
+      continue;
+    }
+  }
+  return {ok:false,status:400,data:{error:{message:lastErr||"All vision models failed"}}};
+}
+
 // ---------- SEND ----------
 async function sendMessage(){
 var text=messageInput.value.trim();
@@ -495,7 +584,6 @@ messageInput.value="";autoResize();
 addMessage("user",text||"",attachmentsNow);
 
 var hasImage=attachmentsNow.some(function(a){return a.type==="image"});
-var model=hasImage?GROQ_VISION_MODEL:GROQ_TEXT_MODEL;
 
 var fullText=text||"";
 attachmentsNow.forEach(function(a){
@@ -509,48 +597,43 @@ if(a.type==="image"){userContent.push({type:"image_url",image_url:{url:a.dataUrl
 });
 if(userContent.length===0){userContent.push({type:"text",text:"(no content)"})}
 
+// For history: keep simple text when possible, else the array
 var historyUserContent=userContent.length===1&&userContent[0].type==="text"?userContent[0].text:userContent;
 history.push({role:"user",content:historyUserContent});
 
 showTyping();
 
 try{
-var body={
-model:model,
-messages:[{role:"system",content:SYSTEM_INSTRUCTIONS+"\nCurrent specialist mode: "+currentMode+"."}].concat(history),
-temperature:0.7,
-max_tokens:2048
-};
-var r=await fetch("https://api.groq.com/openai/v1/chat/completions",{
-method:"POST",
-headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_API_KEY},
-body:JSON.stringify(body)
-});
-var data=await r.json();
-hideTyping();
+  var res;
+  if(hasImage){
+    res=await callWithVisionFallback(userContent);
+  }else{
+    res=await groqFetch(GROQ_TEXT_MODEL,historyUserContent);
+  }
+  hideTyping();
 
-if(!r.ok){
-var emsg=(data&&data.error&&data.error.message)||("Request failed ("+r.status+")");
-if(hasImage){
-showError("Image analysis failed: "+emsg);
-showInfo("Try again without the image, or paste a description of it.");
-}else{
-showError(emsg);
-}
-history.pop();
-}else{
-var answer=(data&&data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||"I could not generate a response.";
-addMessage("ai",answer);
-history.push({role:"assistant",content:answer});
-}
+  if(!res.ok){
+    var emsg=(res.data&&res.data.error&&res.data.error.message)||("Request failed ("+res.status+")");
+    if(hasImage){
+      showError("Image analysis failed: "+emsg);
+      showInfo("You can also try describing the image in text.");
+    }else{
+      showError(emsg);
+    }
+    history.pop();
+  }else{
+    var answer=(res.data&&res.data.choices&&res.data.choices[0]&&res.data.choices[0].message&&res.data.choices[0].message.content)||"I could not generate a response.";
+    addMessage("ai",answer);
+    history.push({role:"assistant",content:answer});
+  }
 }catch(err){
-hideTyping();
-showError("Network error. Check your connection and try again.");
-console.error(err);
-history.pop();
+  hideTyping();
+  showError("Network error. Check your connection and try again.");
+  console.error(err);
+  history.pop();
 }finally{
-isProcessing=false;updateSendState();messageInput.focus();
-if(history.length>40)history=history.slice(-40);
+  isProcessing=false;updateSendState();messageInput.focus();
+  if(history.length>40)history=history.slice(-40);
 }
 }
 
@@ -560,7 +643,7 @@ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(!sendBtn.disabled)sendMes
 });
 
 // ---------- WELCOME ----------
-addMessage("ai","Hello! I am Brian AI. I can help with general questions, education, business, agriculture, technology, and science. You can also upload images 📷, documents 📄, or use the mic 🎤. How can I assist you today?");
+addMessage("ai","Hello! I am Brian AI. I can help with general questions, education, business, agriculture, technology, and science. You can also upload images 📷, documents 📄 (including PDFs), or use the mic 🎤. How can I assist you today?");
 
 autoResize();
 })();
